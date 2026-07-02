@@ -609,7 +609,7 @@ Rectangle {
                              "qrc:/icons/toolbar/disconnect.svg"
 
       visible: Cpp_CommercialBuild ? (Cpp_Licensing_Trial.trialExpired && !Cpp_Licensing_LemonSqueezy.isActivated ? false : true) : true
-      enabled: Cpp_IO_Manager.configurationOk
+      enabled: (Cpp_IO_Manager.isConnected || Cpp_IO_Manager.configurationOk)
                && !Cpp_CSV_Player.isOpen
                && !Cpp_MDF4_Player.isOpen
                && !app.sessionPlayerOpen
