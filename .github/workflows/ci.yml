@@ -52,10 +52,9 @@ env:
 
   #
   # Microsoft Store (MSIX) package identity
-  # Values must match Partner Center: Product management -> Product identity
   #
   MSIX_IDENTITY_NAME: "AlexSpataru.SerialStudioPro"
-  MSIX_PUBLISHER: "CN=00000000-0000-0000-0000-000000000000"
+  MSIX_PUBLISHER: "CN=05B4181B-4085-4067-8FAF-BD59DCB9A376"
   MSIX_PUBLISHER_DISPLAY: "Alex Spataru"
 
   #
