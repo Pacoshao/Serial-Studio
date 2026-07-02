@@ -136,13 +136,18 @@ void NativeWindow::installMacOSQuitInterceptor()
 }
 
 /**
- * @brief Retrieves the height of the title bar.
+ * @brief Retrieves the height of the title bar; must never force platform-window creation,
+ * since materializing a hidden dialog centers it over its still-unpolished transient parent
+ * and Cocoa then warns about an off-screen position.
  */
 int NativeWindow::titlebarHeight(QObject *window)
 {
   QWindow *win = qobject_cast<QWindow *>(window);
   if (!win)
     return 0;
+
+  if (!win->handle())
+    return 32;
 
   NSView *view = reinterpret_cast<NSView *>(win->winId());
   if (!view)
