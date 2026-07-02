@@ -156,7 +156,7 @@ Widgets.SmartDialog {
           horizontalPadding: 8
           text: qsTr("Open in Browser")
           Layout.alignment: Qt.AlignLeft
-          icon.source: "qrc:/icons/buttons/download.svg"
+          icon.source: "qrc:/icons/buttons/website.svg"
           onClicked: Cpp_Licensing_OfflineLicense.openActivationPortal()
         }
       }
