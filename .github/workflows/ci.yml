@@ -397,6 +397,8 @@ jobs:
           exit 1
         fi
 
+        printf '{"packageType":"appimage","arch":"x86_64"}\n' > AppDir/usr/bin/ss-config.json
+
         ./linuxdeploy-x86_64.AppImage --appdir AppDir --output appimage
 
         rm linuxdeploy-x86_64.AppImage
@@ -420,12 +422,23 @@ jobs:
         export LDNP_META_ARCHITECTURE="amd64"
         export LDNP_META_BUILD_ARCH="x86_64"
 
+        printf '{"packageType":"deb","arch":"x86_64"}\n' > build/app/AppDir/usr/bin/ss-config.json
         /tmp/ldnp-venv/bin/linuxdeploy-plugin-native_packages \
           --appdir build/app/AppDir \
-          --build deb --build rpm
+          --build deb
+
+        printf '{"packageType":"rpm","arch":"x86_64"}\n' > build/app/AppDir/usr/bin/ss-config.json
+        /tmp/ldnp-venv/bin/linuxdeploy-plugin-native_packages \
+          --appdir build/app/AppDir \
+          --build rpm
 
         mv "${{env.UNIXNAME}}"_*.deb "${{env.EXECUTABLE}}-${{env.VERSION}}-Linux-x64.deb"
         mv "${{env.UNIXNAME}}"_*.rpm "${{env.EXECUTABLE}}-${{env.VERSION}}-Linux-x64.rpm"
+
+        dpkg-deb --fsys-tarfile "${{env.EXECUTABLE}}-${{env.VERSION}}-Linux-x64.deb" \
+          | tar -xO --wildcards '*/ss-config.json' | grep -q '"packageType":"deb"'
+        rpm2cpio "${{env.EXECUTABLE}}-${{env.VERSION}}-Linux-x64.rpm" \
+          | cpio --quiet -i --to-stdout '*ss-config.json' | grep -q '"packageType":"rpm"'
 
     - name: '✍🏻 Sign Linux artifacts (GPG, optional)'
       env:
@@ -775,6 +788,8 @@ jobs:
           exit 1
         fi
 
+        printf '{"packageType":"appimage","arch":"arm64"}\n' > AppDir/usr/bin/ss-config.json
+
         ./linuxdeploy-aarch64.AppImage --appdir AppDir --output appimage
 
         rm linuxdeploy-aarch64.AppImage
@@ -798,12 +813,23 @@ jobs:
         export LDNP_META_ARCHITECTURE="arm64"
         export LDNP_META_BUILD_ARCH="aarch64"
 
+        printf '{"packageType":"deb","arch":"arm64"}\n' > build/app/AppDir/usr/bin/ss-config.json
         /tmp/ldnp-venv/bin/linuxdeploy-plugin-native_packages \
           --appdir build/app/AppDir \
-          --build deb --build rpm
+          --build deb
+
+        printf '{"packageType":"rpm","arch":"arm64"}\n' > build/app/AppDir/usr/bin/ss-config.json
+        /tmp/ldnp-venv/bin/linuxdeploy-plugin-native_packages \
+          --appdir build/app/AppDir \
+          --build rpm
 
         mv "${{env.UNIXNAME}}"_*.deb "${{env.EXECUTABLE}}-${{env.VERSION}}-Linux-arm64.deb"
         mv "${{env.UNIXNAME}}"_*.rpm "${{env.EXECUTABLE}}-${{env.VERSION}}-Linux-arm64.rpm"
+
+        dpkg-deb --fsys-tarfile "${{env.EXECUTABLE}}-${{env.VERSION}}-Linux-arm64.deb" \
+          | tar -xO --wildcards '*/ss-config.json' | grep -q '"packageType":"deb"'
+        rpm2cpio "${{env.EXECUTABLE}}-${{env.VERSION}}-Linux-arm64.rpm" \
+          | cpio --quiet -i --to-stdout '*ss-config.json' | grep -q '"packageType":"rpm"'
 
     - name: '✍🏻 Sign Linux artifacts (GPG, optional)'
       env:
@@ -1219,6 +1245,11 @@ jobs:
         lipo -info "$APP_EXE"
         lipo -info "$APP_EXE" | grep -q "arm64" && lipo -info "$APP_EXE" | grep -q "x86_64"
 
+    - name: '📝 Stamp packaging metadata (before codesign)'
+      run: |
+        printf '{"packageType":"dmg","arch":"universal"}\n' \
+          > "${{env.APPLICATION}}.app/Contents/Resources/ss-config.json"
+
     - name: '🔎 Scan binaries with deglyph'
       uses: deglyph-re/cli@main
       with:
@@ -1433,6 +1464,7 @@ jobs:
           -DENABLE_GRPC=ON `
           -DENABLE_PGO=ON `
           -DPGO_STAGE=USE `
+          -DSS_PACKAGE_TYPE=msi `
           -DCMAKE_BUILD_TYPE=Release `
           -DBUILD_COMMERCIAL=ON `
           -DBUILD_GPL3=OFF
@@ -1536,7 +1568,9 @@ jobs:
       run: |
         cd build
         DIRNAME=$(cat dirname.txt)
+        printf '{"packageType":"portable","arch":"x86_64"}\n' > "$DIRNAME/bin/ss-config.json"
         7z a ${{env.EXECUTABLE}}-${{env.VERSION}}-Windows-Portable.zip "${{env.APPLICATION}}.bat" License.rtf $DIRNAME/*
+        7z e -so ${{env.EXECUTABLE}}-${{env.VERSION}}-Windows-Portable.zip "$DIRNAME/bin/ss-config.json" | grep -q '"packageType":"portable"'
         mv ${{env.EXECUTABLE}}-${{env.VERSION}}-Windows-Portable.zip ..
 
     - name: '📦 Create MSIX package (Microsoft Store)'
@@ -1545,6 +1579,8 @@ jobs:
         $staging = "build/msix"
         New-Item -ItemType Directory -Force "$staging/Assets" | Out-Null
         Copy-Item -Recurse -Force "build/$dirname/*" $staging
+        Set-Content -Path "$staging/bin/ss-config.json" `
+          -Value '{"packageType":"msix","arch":"x86_64"}' -Encoding utf8 -NoNewline
 
         Add-Type -AssemblyName System.Drawing
         $icon = [System.Drawing.Image]::FromFile("$PWD/app/deploy/PackageIcon.png")
@@ -1607,6 +1643,8 @@ jobs:
         if (-not $makeappx) { throw 'makeappx.exe not found in any installed Windows SDK' }
         & $makeappx.FullName pack /d $staging /p "${{env.EXECUTABLE}}-${{env.VERSION}}-Windows.msix" /o
         if ($LASTEXITCODE -ne 0) { throw "makeappx failed with exit code $LASTEXITCODE" }
+        $stamp = & 7z e -so "${{env.EXECUTABLE}}-${{env.VERSION}}-Windows.msix" "bin/ss-config.json"
+        if ($stamp -notmatch '"packageType":"msix"') { throw 'MSIX ss-config.json stamp mismatch' }
 
     - name: '📤 Upload artifact: MSI installer'
       uses: actions/upload-artifact@v5

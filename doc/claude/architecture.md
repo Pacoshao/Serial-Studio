@@ -653,3 +653,13 @@ of `app/src/DataModel/Frame.h` as `inline constexpr QLatin1StringView` (alias `K
   agent-facing globals reference is `:/ai/docs/control_script_js.md`
   (`meta.fetchScriptingDocs{kind:'control_script_js'}`; allow-lists in
   `ContextBuilder::scriptingDocFor` AND `ToolDispatcher::getScriptingDocs`, plus `rcc.qrc`).
+- **Packaging-aware updater**: `ModuleManager::configureUpdater()` resolves the QSimpleUpdater
+  appcast key (repo-root `updates.json`) in three tiers: the CI-stamped `ss-config.json`
+  (`packageType` + `arch`) read from `applicationDirPath()` (macOS also `../Resources`), then
+  runtime probing (`APPIMAGE` env var on Linux; `GetCurrentPackageFullName` on Windows so a
+  Store install is never offered the MSI), then the legacy per-OS keys. `windows-msix` is
+  open-url-only (Store owns updates). Three things must stay in sync: the ci.yml stamp steps
+  (one per package; deb/rpm are two separate ldnp runs, macOS stamps before codesign, MSI via
+  `-DSS_PACKAGE_TYPE` in `app/CMakeLists.txt`), the key table in `ModuleManager.cpp`, and the
+  `updates.json` keys (shape pinned by `tests/unit/test_updates_manifest.py`). Dev builds have
+  no stamp and keep today's behavior.

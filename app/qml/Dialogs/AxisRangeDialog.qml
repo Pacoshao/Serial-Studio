@@ -41,24 +41,6 @@ Widgets.SmartDialog {
   property bool hasCustomRanges: false
 
   //
-  // Drop the raw C++ pointers the moment their QObjects are destroyed so the
-  // auto-range bindings and apply path can never dereference a stale pointer.
-  //
-  Connections {
-    target: root.dataModel
-    function onDestroyed() {
-      root.dataModel = null
-    }
-  }
-
-  Connections {
-    target: root.plotWidget
-    function onDestroyed() {
-      root.plotWidget = null
-    }
-  }
-
-  //
   // Window properties
   //
   staysOnTop: true

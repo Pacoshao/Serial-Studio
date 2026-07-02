@@ -23,13 +23,24 @@
 
 #include <QSimpleUpdater.h>
 
-// code-verify off  -- raw stdio is required: this file installs the
-// qDebug message handler, so routing through qDebug here would recurse.
+// code-verify off
 #include <iostream>
 // code-verify on
+
 #include <QCoreApplication>
+#include <QFile>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QQmlContext>
+#include <QStringList>
 #include <QSysInfo>
+
+#if defined(Q_OS_WIN)
+// clang-format off
+#  include <windows.h>
+#  include <appmodel.h>
+// clang-format on
+#endif
 
 #include "API/ProcessLauncher.h"
 #include "API/Server.h"
@@ -367,8 +378,101 @@ void Misc::ModuleManager::onQuit()
 // Updater configuration
 //--------------------------------------------------------------------------------------------------
 
+#if defined(Q_OS_LINUX)
 /**
- * @brief Configures QSimpleUpdater defaults and the Linux arch-specific appcast key.
+ * @brief Returns the updates.json architecture suffix ("x64"/"arm64") for the running CPU,
+ *        or an empty string on architectures the release feed does not carry.
+ */
+[[nodiscard]] static QString updaterArchSuffix()
+{
+  const auto arch = QSysInfo::buildCpuArchitecture();
+  if (arch == QStringLiteral("x86_64") || arch == QStringLiteral("i386"))
+    return QStringLiteral("x64");
+
+  if (arch == QStringLiteral("arm64") || arch == QStringLiteral("aarch64"))
+    return QStringLiteral("arm64");
+
+  return QString();
+}
+#endif
+
+/**
+ * @brief Maps the CI-stamped ss-config.json (packageType + arch, shipped beside the executable)
+ *        to an appcast platform key; empty when the stamp is absent, unreadable, unknown or
+ *        stamped for a different platform (which must degrade, never offer a foreign package).
+ */
+[[nodiscard]] static QString packageStampKey()
+{
+  constexpr qint64 kMaxStampBytes = 4096;
+
+  QStringList candidates = {QCoreApplication::applicationDirPath()
+                            + QStringLiteral("/ss-config.json")};
+#if defined(Q_OS_MACOS)
+  candidates.append(QCoreApplication::applicationDirPath()
+                    + QStringLiteral("/../Resources/ss-config.json"));
+#endif
+
+  for (const auto& path : std::as_const(candidates)) {
+    QFile file(path);
+    if (file.size() > kMaxStampBytes || !file.open(QIODevice::ReadOnly))
+      continue;
+
+    const auto stamp = QJsonDocument::fromJson(file.readAll()).object();
+    const auto type  = stamp.value(QStringLiteral("packageType")).toString();
+
+#if defined(Q_OS_WIN)
+    if (type == QStringLiteral("msi"))
+      return QStringLiteral("windows-msi");
+
+    if (type == QStringLiteral("portable"))
+      return QStringLiteral("windows-portable");
+
+    if (type == QStringLiteral("msix"))
+      return QStringLiteral("windows-msix");
+#elif defined(Q_OS_MACOS)
+    if (type == QStringLiteral("dmg"))
+      return QStringLiteral("osx-dmg");
+#elif defined(Q_OS_LINUX)
+    const auto arch = stamp.value(QStringLiteral("arch")).toString();
+
+    QString suffix;
+    if (arch == QStringLiteral("x86_64"))
+      suffix = QStringLiteral("x64");
+    else if (arch == QStringLiteral("arm64"))
+      suffix = QStringLiteral("arm64");
+
+    const bool linux_type = (type == QStringLiteral("appimage") || type == QStringLiteral("deb")
+                             || type == QStringLiteral("rpm"));
+    if (linux_type && !suffix.isEmpty())
+      return QStringLiteral("linux-%1-%2").arg(type, suffix);
+#endif
+  }
+
+  return QString();
+}
+
+/**
+ * @brief Detects the packaging at runtime when no stamp resolved: the AppImage runtime
+ *        environment on Linux, the Win32 package identity (Microsoft Store) on Windows.
+ */
+[[nodiscard]] static QString probedPackageKey()
+{
+#if defined(Q_OS_LINUX)
+  const auto suffix = updaterArchSuffix();
+  if (qEnvironmentVariableIsSet("APPIMAGE") && !suffix.isEmpty())
+    return QStringLiteral("linux-appimage-%1").arg(suffix);
+#elif defined(Q_OS_WIN)
+  UINT32 length = 0;
+  if (GetCurrentPackageFullName(&length, nullptr) == ERROR_INSUFFICIENT_BUFFER)
+    return QStringLiteral("windows-msix");
+#endif
+
+  return QString();
+}
+
+/**
+ * @brief Configures QSimpleUpdater defaults and resolves the packaging-aware appcast key:
+ *        CI stamp first, runtime probing second, the legacy per-OS keys as the last tier.
  */
 void Misc::ModuleManager::configureUpdater()
 {
@@ -379,13 +483,20 @@ void Misc::ModuleManager::configureUpdater()
   QSimpleUpdater::getInstance()->setNotifyOnFinish(APP_UPDATER_URL, false);
   QSimpleUpdater::getInstance()->setMandatoryUpdate(APP_UPDATER_URL, false);
 
+  QString key = packageStampKey();
+  if (key.isEmpty())
+    key = probedPackageKey();
+
 #if defined(Q_OS_LINUX)
-  const auto arch = QSysInfo::buildCpuArchitecture();
-  if (arch == QStringLiteral("x86_64") || arch == QStringLiteral("i386"))
-    QSimpleUpdater::getInstance()->setPlatformKey(APP_UPDATER_URL, "linux-x64");
-  else if (arch == QStringLiteral("arm64") || arch == QStringLiteral("aarch64"))
-    QSimpleUpdater::getInstance()->setPlatformKey(APP_UPDATER_URL, "linux-arm64");
+  if (key.isEmpty()) {
+    const auto suffix = updaterArchSuffix();
+    if (!suffix.isEmpty())
+      key = QStringLiteral("linux-%1").arg(suffix);
+  }
 #endif
+
+  if (!key.isEmpty())
+    QSimpleUpdater::getInstance()->setPlatformKey(APP_UPDATER_URL, key);
 }
 
 //--------------------------------------------------------------------------------------------------

@@ -1482,6 +1482,25 @@ if(MSVC)
   )
 endif()
 
+# CI-only packaging stamp: when SS_PACKAGE_TYPE is set (never for local builds), install an
+# ss-config.json beside the executable so the in-app updater can offer the matching package
+# format. Packages that CI post-processes (portable ZIP, MSIX, AppImage, deb, rpm, dmg)
+# overwrite this file in their own workflow steps; cpack payloads (MSI) ship it as-is.
+set(SS_PACKAGE_TYPE "" CACHE STRING "Package-type stamp for ss-config.json (CI use only)")
+if(SS_PACKAGE_TYPE)
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
+    set(SS_PACKAGE_ARCH "arm64")
+  else()
+    set(SS_PACKAGE_ARCH "x86_64")
+  endif()
+  file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/ss-config.json
+    "{\"packageType\":\"${SS_PACKAGE_TYPE}\",\"arch\":\"${SS_PACKAGE_ARCH}\"}\n")
+  install(
+    FILES       ${CMAKE_CURRENT_BINARY_DIR}/ss-config.json
+    DESTINATION ${CMAKE_INSTALL_BINDIR}
+  )
+endif()
+
 set(deploy_tool_options_arg "")
 if(APPLE)
   set(deploy_tool_options_arg "-hardened-runtime -appstore-compliant")
