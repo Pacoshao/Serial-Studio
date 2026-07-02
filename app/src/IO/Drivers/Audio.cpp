@@ -122,13 +122,51 @@ static IO::Drivers::Audio::AudioDeviceInfo extractCapabilities(ma_context* conte
 }
 
 /**
+ * @brief Returns the index of the device with the given ID, or -1 if absent.
+ */
+static int deviceIndexById(const QVector<ma_device_info>& list, const ma_device_id& id)
+{
+  for (int i = 0; i < list.size(); ++i)
+    if (memcmp(&list[i].id, &id, sizeof(ma_device_id)) == 0)
+      return i;
+
+  return -1;
+}
+
+/**
+ * @brief Replaces the device list and capabilities, remapping the selected index by device ID
+ * so an insertion or removal earlier in the enumeration cannot silently retarget the
+ * selection; a selection whose device disappeared becomes -1.
+ */
+static void replaceDeviceList(ma_context* context,
+                              ma_device_type type,
+                              QVector<ma_device_info>& currentList,
+                              const QVector<ma_device_info>& newList,
+                              int& selectedIndex,
+                              QVector<IO::Drivers::Audio::AudioDeviceInfo>& capabilities)
+{
+  ma_device_id selectedId = {};
+  const bool hadSelection = selectedIndex >= 0 && selectedIndex < currentList.size();
+  if (hadSelection)
+    selectedId = currentList[selectedIndex].id;
+
+  currentList = newList;
+  capabilities.clear();
+  for (const auto& info : std::as_const(currentList))
+    capabilities.append(extractCapabilities(context, info, type));
+
+  if (hadSelection)
+    selectedIndex = deviceIndexById(currentList, selectedId);
+}
+
+/**
  * @brief Checks for changes in the audio device list and updates it if necessary.
  */
 static bool checkAndUpdateDeviceList(ma_context* context,
                                      ma_device_type type,
                                      QVector<ma_device_info>& currentList,
                                      const QVector<ma_device_info>& newList,
-                                     int selectedIndex,
+                                     int& selectedIndex,
                                      bool isOpen,
                                      const std::function<void()>& settingsChanged,
                                      const std::function<void()>& configurationChanged,
@@ -136,12 +174,9 @@ static bool checkAndUpdateDeviceList(ma_context* context,
 {
   if (!isOpen) {
     if (deviceListsDiffer(newList, currentList)) {
-      currentList = newList;
-      capabilities.clear();
-      for (const auto& info : std::as_const(currentList))
-        capabilities.append(extractCapabilities(context, info, type));
-
+      replaceDeviceList(context, type, currentList, newList, selectedIndex, capabilities);
       settingsChanged();
+      configurationChanged();
       return true;
     }
 
@@ -149,23 +184,12 @@ static bool checkAndUpdateDeviceList(ma_context* context,
   }
 
   bool stillConnected = false;
-  if (selectedIndex >= 0 && selectedIndex < currentList.size()) {
-    const ma_device_id& currentId = currentList[selectedIndex].id;
-    for (const auto& device : newList) {
-      if (memcmp(&device.id, &currentId, sizeof(ma_device_id)) == 0) {
-        stillConnected = true;
-        break;
-      }
-    }
-  }
+  if (selectedIndex >= 0 && selectedIndex < currentList.size())
+    stillConnected = deviceIndexById(newList, currentList[selectedIndex].id) >= 0;
 
   if (!stillConnected) {
     IO::ConnectionManager::instance().disconnectDevice();
-    currentList = newList;
-    capabilities.clear();
-    for (const auto& info : std::as_const(currentList))
-      capabilities.append(extractCapabilities(context, info, type));
-
+    replaceDeviceList(context, type, currentList, newList, selectedIndex, capabilities);
     settingsChanged();
     configurationChanged();
     return true;
@@ -1193,13 +1217,20 @@ void IO::Drivers::Audio::refreshAudioDevices()
     m_outputCapabilities);
 
   if (m_selectedInputDevice < 0 && newInputDevices.count() > 0) {
-    m_selectedInputDevice = 0;
-    Q_EMIT inputSettingsChanged();
+    m_selectedInputDevice               = 0;
+    m_selectedSampleRate                = -1;
+    m_selectedInputSampleFormat         = -1;
+    m_selectedInputChannelConfiguration = -1;
+    syncInputParameters();
+    configureInput();
   }
 
   if (m_selectedOutputDevice < 0 && newOutputDevices.count() > 0) {
-    m_selectedOutputDevice = 0;
-    Q_EMIT outputSettingsChanged();
+    m_selectedOutputDevice               = 0;
+    m_selectedOutputSampleFormat         = -1;
+    m_selectedOutputChannelConfiguration = -1;
+    syncOutputParameters();
+    configureOutput();
   }
 }
 
