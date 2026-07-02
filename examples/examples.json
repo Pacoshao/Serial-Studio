@@ -306,7 +306,7 @@
     "difficulty": "Intermediate",
     "hasProjectFile": true,
     "projectFileName": "OBD-II.ssproj",
-    "hasScreenshot": false,
+    "hasScreenshot": true,
     "requiresPro": false
   }
 ]
