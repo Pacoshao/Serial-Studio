@@ -174,8 +174,8 @@ const QString& Licensing::OfflineLicense::lastError() const noexcept
 
 /**
  * @brief Removes the offline certificate from this device after user confirmation;
- * the seat itself can only be released manually by support, so the prompt tells
- * the user to email their device ID or .ssmachine file first.
+ * an air-gapped device cannot report a deactivation, so the prompt explains the
+ * seat stays consumed and reactivation works while the machine ID is unchanged.
  */
 void Licensing::OfflineLicense::deactivate()
 {
@@ -184,10 +184,9 @@ void Licensing::OfflineLicense::deactivate()
 
   const int answer = Misc::Utilities::showMessageBox(
     tr("Remove the offline license from this device?"),
-    tr("This deletes the local activation certificate, but it does not free up "
-       "your license seat automatically.\n\nTo reuse this seat on another device, "
-       "email alex@serial-studio.com with your device ID or your .ssmachine file "
-       "so the seat can be released manually."),
+    tr("This does not free your license seat, because deactivations cannot be "
+       "verified on offline devices. You can reactivate this device with the "
+       "same license file as long as its machine ID does not change."),
     QMessageBox::Question,
     tr("Offline Activation"),
     QMessageBox::Yes | QMessageBox::No,

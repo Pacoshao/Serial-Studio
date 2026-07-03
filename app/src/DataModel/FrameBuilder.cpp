@@ -2411,10 +2411,18 @@ void DataModel::FrameBuilder::initializeTableStore()
 }
 
 /**
- * @brief Re-initializes the DataTableStore from the project model's in-flight edits.
+ * @brief Re-initializes the DataTableStore from the project model's in-flight edits. Preview and
+ *        editor paths call this; while a connection or player session is live it is a no-op, since
+ *        a rebuild would stale script handles and reset live values just to serve a preview.
+ *        Definition edits reach a live runtime through the epoch-apply and autosave rebuilds.
  */
 void DataModel::FrameBuilder::refreshTableStoreFromProjectModel()
 {
+  const bool session_live =
+    IO::ConnectionManager::instance().isConnected() || SerialStudio::isAnyPlayerOpen();
+  if (m_tableStore.isInitialized() && session_live)
+    return;
+
   const auto& pm = DataModel::ProjectModel::instance();
   DataModel::Frame scratch;
   scratch.title  = pm.title();

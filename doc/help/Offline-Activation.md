@@ -14,6 +14,11 @@ Offline activation is available in the Pro (commercial) build only, and is
 offered for lifetime and test-stand licenses. Monthly and yearly subscriptions
 use online activation with the 30-day offline grace period instead.
 
+> **Warning:** activating an offline device permanently consumes one license
+> seat. An air-gapped machine cannot report a deactivation, so there is no way
+> to verify that a seat was released, and the seat cannot be freed or moved to
+> another machine. Plan your seats before activating.
+
 ## What you need
 
 - A Serial Studio Pro lifetime or test-stand license key and the email address
@@ -67,8 +72,13 @@ Pro features unlock immediately, and no network request is made on this machine.
 
 - The license file is bound to the machine that produced the device file. It
   will not activate any other machine.
-- Each offline activation uses one seat on your license, the same as an online
-  activation.
+- Each offline activation permanently consumes one seat on your license.
+  Unlike an online activation, the seat is never released: the machine cannot
+  report a deactivation, and the server cannot verify one.
+- The same machine can be reactivated by importing its `.sslic` file again, as
+  long as its machine ID has not changed. The machine ID is derived from the
+  operating system, not Serial Studio, and may change after an OS reinstall or
+  a hardware replacement. Keep the license file somewhere safe.
 - A lifetime license file does not expire. It keeps working on that machine with
   no further steps.
 - A test-stand license file carries an expiry that follows your license term. Run
@@ -79,9 +89,18 @@ Pro features unlock immediately, and no network request is made on this machine.
 
 ## Managing seats
 
-Because the offline machine cannot reach the internet, it cannot release its own
-seat from within Serial Studio, and a lifetime offline activation holds its seat
-until it is removed. To free or move an offline seat, contact
+An offline seat is consumed permanently. The offline machine cannot reach the
+internet, so it cannot report a deactivation, and the license server has no way
+to verify that a seat was released on an air-gapped machine. Removing
+the license from within Serial Studio only deletes the local certificate; the
+seat stays in use.
+
+Deleting the certificate is reversible on the same machine: import the `.sslic`
+file again and Pro features unlock, provided the machine ID has not changed.
+That ID depends on the operating system, so an OS reinstall or a hardware
+replacement can invalidate it through no action of Serial Studio.
+
+If an offline machine is destroyed or decommissioned, contact
 alex@serial-studio.com.
 
 ## Troubleshooting

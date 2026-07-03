@@ -84,8 +84,9 @@ def parse_script():
 # Node.js, so handle-API tests run against this JS shim, a faithful model of the
 # C++ DataTableStore semantics: a flat register store, generation-tagged handles
 # (gen << 24 | index), the computed-register write guard, the -1 sentinel, and
-# safe no-ops for stale/invalid handles. __defineRegister(table, reg, computed,
-# default) sets registers up; __bumpGeneration() simulates a table-def rebuild.
+# safe no-ops for stale/invalid handles and undefined/null values.
+# __defineRegister(table, reg, computed, default) sets registers up;
+# __bumpGeneration() simulates a table-def rebuild.
 
 TABLE_API_SHIM = r"""
 (function () {
@@ -119,6 +120,7 @@ TABLE_API_SHIM = r"""
     return rec ? read(rec) : undefined;
   };
   globalThis.tableSet = function (t, r, v) {
+    if (v === undefined || v === null) return;
     var rec = REG[key(t, r)];
     if (rec && rec.computed) write(rec, v);
   };
@@ -136,6 +138,7 @@ TABLE_API_SHIM = r"""
     return idx < 0 ? undefined : read(REG[ORDER[idx]]);
   };
   globalThis.tableSetH = function (h, v) {
+    if (v === undefined || v === null) return;
     var idx = unpack(h);
     if (idx < 0) return;
     var rec = REG[ORDER[idx]];

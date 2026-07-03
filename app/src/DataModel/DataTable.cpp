@@ -615,11 +615,15 @@ QVariant DataModel::TableApiBridge::tableGet(const QString& t, const QString& r)
 }
 
 /**
- * @brief Writes a value to a computed register.
+ * @brief Writes a value to a computed register. An undefined or null value is a safe no-op,
+ *        matching the Lua bridge's nil handling.
  */
 void DataModel::TableApiBridge::tableSet(const QString& t, const QString& r, const QVariant& v)
 {
   Q_ASSERT(store);
+
+  if (!v.isValid() || v.typeId() == QMetaType::Nullptr)
+    return;
 
   DataModel::RegisterValue rv;
   rv.numericValue = SerialStudio::toDouble(v, &rv.isNumeric);
@@ -668,11 +672,15 @@ QVariant DataModel::TableApiBridge::tableGetH(qint64 h)
 }
 
 /**
- * @brief Writes a value to a computed register by handle.
+ * @brief Writes a value to a computed register by handle. An undefined or null value is a safe
+ *        no-op, matching the Lua bridge's nil handling.
  */
 void DataModel::TableApiBridge::tableSetH(qint64 h, const QVariant& v)
 {
   Q_ASSERT(store);
+
+  if (!v.isValid() || v.typeId() == QMetaType::Nullptr)
+    return;
 
   DataModel::RegisterValue rv;
   rv.numericValue = SerialStudio::toDouble(v, &rv.isNumeric);

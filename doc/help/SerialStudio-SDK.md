@@ -106,7 +106,7 @@ The shared data tables are the cross-script blackboard (see [Data Tables](Data-T
 | Function | Returns | Notes |
 |---|---|---|
 | `tableGet(table, register)` | value or `undefined` | `tableGet(t, r) || fallback` works for missing registers. |
-| `tableSet(table, register, value)` | none | Stages the new value into the live runtime. |
+| `tableSet(table, register, value)` | none | Stages the new value into the live runtime. An undefined/nil value is ignored. |
 | `datasetGetRaw(uniqueId)` / `datasetGetFinal(uniqueId)` | value | Read another dataset's pre/post-transform value by unique id. |
 
 In a Control Loop these calls marshal to the GUI thread, so each costs a round-trip: read once per `loop()` pass, not in a tight inner loop.
@@ -120,7 +120,7 @@ In a Control Loop these calls marshal to the GUI thread, so each costs a round-t
 | `tableHandle(table, register)` | handle (number), or `-1` | Resolve once, at script load. `-1` means the register does not exist. |
 | `tableHandleMany(table, registers)` | array of handles | Resolve several registers of one table in a single call. |
 | `tableGetH(handle)` | value or `undefined` | Read by handle. A stale or invalid handle returns `undefined`. |
-| `tableSetH(handle, value)` | none | Write by handle. A stale, invalid, or constant-register handle is ignored. |
+| `tableSetH(handle, value)` | none | Write by handle. A stale, invalid, or constant-register handle is ignored, as is an undefined/nil value. |
 
 Resolve handles **once**, in the top-level body of the script (which runs when the project loads), and keep them in a variable or array. Then use only `tableGetH`/`tableSetH` inside `parse()` / `transform()` / `loop()`:
 
