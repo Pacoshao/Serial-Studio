@@ -106,8 +106,9 @@ jobs:
         # NOTE: qtsvg is part of qt_base since Qt 6.7 — do not list it here,
         # aqt will fail with "packages not found".
         # Qt6Graphs depends on Qt6Quick3D since Qt 6.7, so install qtquick3d too.
-        # Qt6WebEngineCore depends on Qt6WebChannel (not auto-pulled by qtwebengine).
-        modules: ${{ inputs.with_webengine && 'qtwebengine qtwebchannel qt5compat qtconnectivity qtserialport qtquick3d qtgraphs qtshadertools' || 'qt5compat qtconnectivity qtserialport qtquick3d qtgraphs qtshadertools' }}
+        # Qt6WebEngineQuick depends on Qt6WebEngineCore -> Qt6WebChannel + Qt6Positioning
+        # (neither is auto-pulled by the qtwebengine module in aqtinstall).
+        modules: ${{ inputs.with_webengine && 'qtwebengine qtwebchannel qtpositioning qt5compat qtconnectivity qtserialport qtquick3d qtgraphs qtshadertools' || 'qt5compat qtconnectivity qtserialport qtquick3d qtgraphs qtshadertools' }}
         cache: true
 
     - name: 'Configure (CMake)'
@@ -169,8 +170,9 @@ jobs:
         arch: clang_64
         # qtsvg is part of qt_base since Qt 6.7 — do not list as a module.
         # Qt6Graphs depends on Qt6Quick3D since Qt 6.7, so install qtquick3d too.
-        # Qt6WebEngineCore depends on Qt6WebChannel (not auto-pulled by qtwebengine).
-        modules: ${{ inputs.with_webengine && 'qtwebengine qtwebchannel qt5compat qtconnectivity qtserialport qtquick3d qtgraphs qtshadertools' || 'qt5compat qtconnectivity qtserialport qtquick3d qtgraphs qtshadertools' }}
+        # Qt6WebEngineQuick depends on Qt6WebEngineCore -> Qt6WebChannel + Qt6Positioning
+        # (neither is auto-pulled by the qtwebengine module in aqtinstall).
+        modules: ${{ inputs.with_webengine && 'qtwebengine qtwebchannel qtpositioning qt5compat qtconnectivity qtserialport qtquick3d qtgraphs qtshadertools' || 'qt5compat qtconnectivity qtserialport qtquick3d qtgraphs qtshadertools' }}
         cache: true
 
     - name: 'Configure (CMake)'
@@ -232,10 +234,11 @@ jobs:
         arch: win64_msvc2022_64
         # qtsvg is part of qt_base since Qt 6.7 — do not list as a module.
         # Qt6Graphs depends on Qt6Quick3D since Qt 6.7, so install qtquick3d too.
-        # Qt6WebEngineCore depends on Qt6WebChannel (not auto-pulled by qtwebengine).
+        # Qt6WebEngineQuick depends on Qt6WebEngineCore -> Qt6WebChannel + Qt6Positioning
+        # (neither is auto-pulled by the qtwebengine module in aqtinstall).
         # jurplel/install-qt-action also installs Ninja, used by the -G Ninja
         # generator below on Windows.
-        modules: ${{ inputs.with_webengine && 'qtwebengine qtwebchannel qt5compat qtconnectivity qtserialport qtquick3d qtgraphs qtshadertools' || 'qt5compat qtconnectivity qtserialport qtquick3d qtgraphs qtshadertools' }}
+        modules: ${{ inputs.with_webengine && 'qtwebengine qtwebchannel qtpositioning qt5compat qtconnectivity qtserialport qtquick3d qtgraphs qtshadertools' || 'qt5compat qtconnectivity qtserialport qtquick3d qtgraphs qtshadertools' }}
         cache: true
 
     - name: 'Configure (CMake)'
