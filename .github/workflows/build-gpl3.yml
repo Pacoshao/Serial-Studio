@@ -1,0 +1,264 @@
+#
+# Serial Studio
+# https://serial-studio.com/
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+# Manual-trigger, no-secrets GPL3 build for Serial Studio.
+# Builds the open-source GPLv3 edition on Linux, macOS and Windows and
+# uploads the resulting binaries as workflow artifacts.
+#
+
+name: Build GPL3
+
+on:
+  workflow_dispatch:
+    inputs:
+      with_webengine:
+        description: 'Build with Qt WebEngine (markdown viewers, PDF reports)'
+        type: boolean
+        default: true
+      skip_linux:
+        description: 'Skip Linux build'
+        type: boolean
+        default: false
+      skip_macos:
+        description: 'Skip macOS build'
+        type: boolean
+        default: false
+      skip_windows:
+        description: 'Skip Windows build'
+        type: boolean
+        default: false
+
+env:
+  QT_VERSION: 6.9.1
+  CMAKE_BUILD_TYPE: Release
+
+jobs:
+
+#-------------------------------------------------------------------------------
+# Linux (x86_64)
+#-------------------------------------------------------------------------------
+
+  build-linux:
+    if: ${{ !inputs.skip_linux }}
+    runs-on: ubuntu-24.04
+    name: 'Linux Build (GPL3, x86_64)'
+    steps:
+    - name: 'Checkout'
+      uses: actions/checkout@v5
+      with:
+        submodules: recursive
+
+    - name: 'Install system dependencies'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          libcups2-dev \
+          libnss3 \
+          libegl1 \
+          libgl1-mesa-dev \
+          libasound2-dev \
+          libudev-dev \
+          libsecret-1-dev \
+          libzstd-dev \
+          zlib1g-dev \
+          libexpat1-dev \
+          libminizip-dev \
+          libopus-dev \
+          libxcb1 \
+          libxcb-cursor0 \
+          libxcb-glx0 \
+          libxcb-icccm4 \
+          libxcb-image0 \
+          libxcb-keysyms1 \
+          libxcb-randr0 \
+          libxcb-render0 \
+          libxcb-render-util0 \
+          libxcb-shape0 \
+          libxcb-shm0 \
+          libxcb-sync1 \
+          libxcb-util1 \
+          libxcb-xfixes0 \
+          libxcb-xinerama0 \
+          libxcb-xkb-dev \
+          libxkbcommon-dev \
+          libxkbcommon-x11-0 \
+          libpulse-dev \
+          libpipewire-0.3-0 \
+          libgstreamer1.0-0 \
+          libgstreamer-plugins-base1.0-0 \
+          gstreamer1.0-plugins-base \
+          gstreamer1.0-plugins-good \
+          gstreamer1.0-plugins-bad \
+          gstreamer1.0-libav \
+          gstreamer1.0-gl
+
+    - name: 'Install Qt'
+      uses: jurplel/install-qt-action@v4
+      with:
+        version: ${{ env.QT_VERSION }}
+        host: linux
+        target: desktop
+        arch: gcc_64
+        modules: ${{ inputs.with_webengine && 'qtwebengine qt5compat qtsvg qtconnectivity qtserialport qtgraphs qtshadertools qtwayland' || 'qt5compat qtsvg qtconnectivity qtserialport qtgraphs qtshadertools qtwayland' }}
+        cache: true
+
+    - name: 'Configure (CMake)'
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=${{ env.CMAKE_BUILD_TYPE }} \
+          -DBUILD_GPL3=ON \
+          -DBUILD_COMMERCIAL=OFF \
+          -DENABLE_GRPC=OFF \
+          -DENABLE_HARDENING=ON \
+          -DWITH_WEBENGINE=${{ inputs.with_webengine && 'ON' || 'OFF' }} \
+          -DUSE_SYSTEM_ZLIB=ON \
+          -DUSE_SYSTEM_EXPAT=ON
+
+    - name: 'Build'
+      run: cmake --build build --config ${{ env.CMAKE_BUILD_TYPE }} -j$(getconf _NPROCESSORS_ONLN)
+
+    - name: 'Stage artifact'
+      run: |
+        mkdir -p staging/bin
+        cp build/app/serial-studio-gpl3 staging/bin/
+        # Bundle a README so users know how to launch it
+        cat > staging/README.txt <<'EOF'
+        Serial Studio - GPLv3 build (Linux x86_64)
+        ==========================================
+        Run: ./bin/serial-studio-gpl3
+        Note: this is a raw binary; Qt runtime libraries must be available
+        on the target system (Qt 6.9.x), or use the official continuous
+        builds at https://github.com/Serial-Studio/Serial-Studio/releases
+        which ship self-contained AppImage/.deb/.rpm packages.
+        EOF
+
+    - name: 'Upload artifact'
+      uses: actions/upload-artifact@v5
+      with:
+        name: Serial-Studio-GPL3-Linux-x64
+        path: staging/
+
+#-------------------------------------------------------------------------------
+# macOS (universal / arm64 host)
+#-------------------------------------------------------------------------------
+
+  build-macos:
+    if: ${{ !inputs.skip_macos }}
+    runs-on: macos-latest
+    name: 'macOS Build (GPL3, arm64)'
+    steps:
+    - name: 'Checkout'
+      uses: actions/checkout@v5
+      with:
+        submodules: recursive
+
+    - name: 'Install Qt'
+      uses: jurplel/install-qt-action@v4
+      with:
+        version: ${{ env.QT_VERSION }}
+        host: mac
+        target: desktop
+        arch: clang_64
+        modules: ${{ inputs.with_webengine && 'qtwebengine qt5compat qtsvg qtconnectivity qtserialport qtgraphs qtshadertools' || 'qt5compat qtsvg qtconnectivity qtserialport qtgraphs qtshadertools' }}
+        cache: true
+
+    - name: 'Configure (CMake)'
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=${{ env.CMAKE_BUILD_TYPE }} \
+          -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \
+          -DCMAKE_OSX_ARCHITECTURES=arm64 \
+          -DBUILD_GPL3=ON \
+          -DBUILD_COMMERCIAL=OFF \
+          -DENABLE_GRPC=OFF \
+          -DWITH_WEBENGINE=${{ inputs.with_webengine && 'ON' || 'OFF' }}
+
+    - name: 'Build'
+      run: cmake --build build --config ${{ env.CMAKE_BUILD_TYPE }} -j$(getconf _NPROCESSORS_ONLN)
+
+    # The CMakeLists.txt registers MACOSX_BUNDLE_POST_BUILD, so macdeployqt
+    # runs automatically after the build and bundles Qt frameworks into the
+    # .app. Just tar up the result.
+    - name: 'Archive .app bundle'
+      run: |
+        cd build/app
+        COPYFILE_DISABLE=1 tar -czf ../../Serial-Studio-GPL3-macOS-arm64.tar.gz \
+          "Serial-Studio-GPL3.app"
+
+    - name: 'Upload artifact'
+      uses: actions/upload-artifact@v5
+      with:
+        name: Serial-Studio-GPL3-macOS-arm64
+        path: Serial-Studio-GPL3-macOS-arm64.tar.gz
+
+#-------------------------------------------------------------------------------
+# Windows (x86_64, MSVC 2022)
+#-------------------------------------------------------------------------------
+
+  build-windows:
+    if: ${{ !inputs.skip_windows }}
+    runs-on: windows-latest
+    name: 'Windows Build (GPL3, x86_64)'
+    steps:
+    - run: git config --global core.autocrlf input
+
+    - name: 'Checkout'
+      uses: actions/checkout@v5
+      with:
+        submodules: recursive
+
+    - name: 'Setup MSVC Development Environment'
+      uses: TheMrMilchmann/setup-msvc-dev@v4
+      with:
+        arch: x64
+
+    - name: 'Install Qt'
+      uses: jurplel/install-qt-action@v4
+      with:
+        version: ${{ env.QT_VERSION }}
+        host: windows
+        target: desktop
+        arch: win64_msvc2022_64
+        modules: ${{ inputs.with_webengine && 'qtwebengine qt5compat qtsvg qtconnectivity qtserialport qtgraphs qtshadertools' || 'qt5compat qtsvg qtconnectivity qtserialport qtgraphs qtshadertools' }}
+        cache: true
+        # jurplel/install-qt-action also installs Ninja, used by the -G Ninja
+        # generator below on Windows.
+
+    - name: 'Configure (CMake)'
+      shell: pwsh
+      run: |
+        cmake -B build -G Ninja `
+          -DCMAKE_BUILD_TYPE=${{ env.CMAKE_BUILD_TYPE }} `
+          -DBUILD_GPL3=ON `
+          -DBUILD_COMMERCIAL=OFF `
+          -DENABLE_GRPC=OFF `
+          -DWITH_WEBENGINE=${{ inputs.with_webengine && 'ON' || 'OFF' }}
+
+    - name: 'Build'
+      shell: pwsh
+      run: cmake --build build --config ${{ env.CMAKE_BUILD_TYPE }} -j $env:NUMBER_OF_PROCESSORS
+
+    # Run windeployqt so the uploaded folder is self-contained and runnable
+    # on any Windows machine (no separate Qt install needed).
+    - name: 'Run windeployqt'
+      shell: pwsh
+      run: |
+        $exe = "build/app/Serial-Studio-GPL3.exe"
+        windeployqt --release --no-translations --no-compiler-runtime `
+          --qmldir "$env:GITHUB_WORKSPACE/app/qml" $exe
+
+    - name: 'Stage artifact'
+      shell: pwsh
+      run: |
+        New-Item -ItemType Directory -Force staging | Out-Null
+        Copy-Item -Recurse build/app/* staging/
+
+    - name: 'Upload artifact'
+      uses: actions/upload-artifact@v5
+      with:
+        name: Serial-Studio-GPL3-Windows-x64
+        path: staging/
