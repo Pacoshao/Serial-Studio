@@ -102,8 +102,10 @@ jobs:
         version: ${{ env.QT_VERSION }}
         host: linux
         target: desktop
-        arch: gcc_64
-        modules: ${{ inputs.with_webengine && 'qtwebengine qt5compat qtsvg qtconnectivity qtserialport qtgraphs qtshadertools qtwayland' || 'qt5compat qtsvg qtconnectivity qtserialport qtgraphs qtshadertools qtwayland' }}
+        arch: linux_gcc_64
+        # NOTE: qtsvg is part of qt_base since Qt 6.7 — do not list it here,
+        # aqt will fail with "packages not found".
+        modules: ${{ inputs.with_webengine && 'qtwebengine qt5compat qtconnectivity qtserialport qtgraphs qtshadertools' || 'qt5compat qtconnectivity qtserialport qtgraphs qtshadertools' }}
         cache: true
 
     - name: 'Configure (CMake)'
@@ -163,7 +165,8 @@ jobs:
         host: mac
         target: desktop
         arch: clang_64
-        modules: ${{ inputs.with_webengine && 'qtwebengine qt5compat qtsvg qtconnectivity qtserialport qtgraphs qtshadertools' || 'qt5compat qtsvg qtconnectivity qtserialport qtgraphs qtshadertools' }}
+        # qtsvg is part of qt_base since Qt 6.7 — do not list as a module.
+        modules: ${{ inputs.with_webengine && 'qtwebengine qt5compat qtconnectivity qtserialport qtgraphs qtshadertools' || 'qt5compat qtconnectivity qtserialport qtgraphs qtshadertools' }}
         cache: true
 
     - name: 'Configure (CMake)'
@@ -223,10 +226,11 @@ jobs:
         host: windows
         target: desktop
         arch: win64_msvc2022_64
-        modules: ${{ inputs.with_webengine && 'qtwebengine qt5compat qtsvg qtconnectivity qtserialport qtgraphs qtshadertools' || 'qt5compat qtsvg qtconnectivity qtserialport qtgraphs qtshadertools' }}
-        cache: true
+        # qtsvg is part of qt_base since Qt 6.7 — do not list as a module.
         # jurplel/install-qt-action also installs Ninja, used by the -G Ninja
         # generator below on Windows.
+        modules: ${{ inputs.with_webengine && 'qtwebengine qt5compat qtconnectivity qtserialport qtgraphs qtshadertools' || 'qt5compat qtconnectivity qtserialport qtgraphs qtshadertools' }}
+        cache: true
 
     - name: 'Configure (CMake)'
       shell: pwsh
